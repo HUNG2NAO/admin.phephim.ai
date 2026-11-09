@@ -6,6 +6,7 @@ import {
   Pencil, EyeOff, Eye, X, Save, UploadCloud, Link2,
   ExternalLink, Film, Clock3, SlidersHorizontal, AlertTriangle, ImageIcon,
   ChevronLeft, ChevronRight, CircleCheck, Menu, LogOut, User,
+  PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import type { Movie } from "@/lib/movies";
 
@@ -17,6 +18,9 @@ type MoviePage = {
 type Filter = "all" | "visible" | "hidden" | "draft";
 const filterLabels: Record<Filter, string> = { all: "Tất cả phim", visible: "Đang hiển thị", hidden: "Đã ẩn", draft: "Bản nháp" };
 const emptyPage: MoviePage = { items: [], total: 0, page: 1, pageSize: 24, totals: { total: 0, visible: 0, hidden: 0, draft: 0 } };
+
+const SIDEBAR_KEY = "phephim-sidebar-collapsed";
+const MOBILE_BREAKPOINT = 850;
 
 function Poster({ movie }: { movie: Movie }) {
   const [failed, setFailed] = useState(false);
@@ -38,14 +42,41 @@ export function Dashboard() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [selected, setSelected] = useState<Movie | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const latestRequest = useRef(0);
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
   function handleLogout() {
     fetch("/api/auth/logout", { method: "POST" }).then(() => {
       window.location.href = "/login";
     });
   }
+
+  useEffect(() => {
+    setMounted(true);
+    const stored = localStorage.getItem(SIDEBAR_KEY);
+    if (stored !== null) {
+      setSidebarCollapsed(stored === "true");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    localStorage.setItem(SIDEBAR_KEY, String(sidebarCollapsed));
+  }, [sidebarCollapsed, mounted]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const handleResize = () => {
+      if (window.innerWidth >= MOBILE_BREAKPOINT && mobileDrawerOpen) {
+        setMobileDrawerOpen(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [mobileDrawerOpen, mounted]);
 
   useEffect(() => { const timer = setTimeout(() => { setSearch(query); setPage(1); }, 300); return () => clearTimeout(timer); }, [query]);
 
@@ -71,7 +102,9 @@ export function Dashboard() {
   function chooseFilter(value: Filter) {
     setFilter(value);
     setPage(1);
-    setSidebarOpen(false);
+    if (window.innerWidth < MOBILE_BREAKPOINT) {
+      setMobileDrawerOpen(false);
+    }
   }
 
   async function saveMovie(movie: Movie, payload: Record<string, unknown>) {
@@ -96,23 +129,124 @@ export function Dashboard() {
     { label: "Bản nháp", value: data.totals.draft, icon: Clock3 },
   ];
 
+  const isDesktop = mounted && window.innerWidth >= MOBILE_BREAKPOINT;
+  const sidebarWidth = sidebarCollapsed ? 72 : 254;
+
   return (
     <div className="app-shell">
-      {sidebarOpen && <button className="mobile-scrim" onClick={() => setSidebarOpen(false)} aria-label="Đóng menu" />}
-      <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
-        <div className="brand"><div className="brand-mark">P</div><div className="brand-copy"><strong>PHE PHIM AI</strong><span>CONTROL ROOM</span></div></div>
-        <div className="sidebar-group-label">QUẢN TRỊ NỘI DUNG</div>
+      {mobileDrawerOpen && (
+        <button
+          className="mobile-scrim"
+          onClick={() => setMobileDrawerOpen(false)}
+          aria-label="Đóng menu"
+          aria-hidden={!mobileDrawerOpen}
+        />
+      )}
+      <aside
+        ref={sidebarRef}
+        className={`sidebar ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${mobileDrawerOpen ? "sidebar-open" : ""}`}
+        style={{ width: sidebarCollapsed ? 72 : 254, flexBasis: sidebarCollapsed ? 72 : 254 }}
+        aria-label="Menu điều hướng"
+      >
+        <div className="brand">
+          <div className="brand-mark">P</div>
+          {!sidebarCollapsed && (
+            <div className="brand-copy">
+              <strong>PHE PHIM AI</strong>
+              <span>CONTROL ROOM</span>
+            </div>
+          )}
+        </div>
+        {!sidebarCollapsed && (
+          <div className="sidebar-group-label">QUẢN TRỊ NỘI DUNG</div>
+        )}
         <nav className="nav-list" aria-label="Chức năng quản trị">
-          <button className="nav-link active" onClick={() => chooseFilter("all")}><LayoutGrid size={18} /> Tổng quan phim <span className="nav-count">{data.totals.total}</span></button>
-          <button className="nav-link" onClick={() => chooseFilter("visible")}><Eye size={18} /> Phim hiển thị</button>
-          <button className="nav-link" onClick={() => chooseFilter("draft")}><Clock3 size={18} /> Bản nháp</button>
-          <button className="nav-link" onClick={() => chooseFilter("hidden")}><EyeOff size={18} /> Phim đã ẩn</button>
+          <button
+            className={`nav-link ${filter === "all" ? "active" : ""}`}
+            onClick={() => chooseFilter("all")}
+            aria-current={filter === "all" ? "page" : undefined}
+            title={sidebarCollapsed ? "Tổng quan phim" : ""}
+          >
+            <LayoutGrid size={18} aria-hidden="true" />
+            {!sidebarCollapsed && <>Tổng quan phim <span className="nav-count">{data.totals.total}</span></>}
+          </button>
+          <button
+            className={`nav-link ${filter === "visible" ? "active" : ""}`}
+            onClick={() => chooseFilter("visible")}
+            aria-current={filter === "visible" ? "page" : undefined}
+            title={sidebarCollapsed ? "Phim hiển thị" : ""}
+          >
+            <Eye size={18} aria-hidden="true" />
+            {!sidebarCollapsed && "Phim hiển thị"}
+          </button>
+          <button
+            className={`nav-link ${filter === "draft" ? "active" : ""}`}
+            onClick={() => chooseFilter("draft")}
+            aria-current={filter === "draft" ? "page" : undefined}
+            title={sidebarCollapsed ? "Bản nháp" : ""}
+          >
+            <Clock3 size={18} aria-hidden="true" />
+            {!sidebarCollapsed && "Bản nháp"}
+          </button>
+          <button
+            className={`nav-link ${filter === "hidden" ? "active" : ""}`}
+            onClick={() => chooseFilter("hidden")}
+            aria-current={filter === "hidden" ? "page" : undefined}
+            title={sidebarCollapsed ? "Phim đã ẩn" : ""}
+          >
+            <EyeOff size={18} aria-hidden="true" />
+            {!sidebarCollapsed && "Phim đã ẩn"}
+          </button>
         </nav>
-        <div className="sidebar-bottom"><div className="secure-note"><ShieldCheck size={16} /><span>Dữ liệu quản lý riêng · Không xóa media</span></div><a href="https://www.phephim.ai" target="_blank" rel="noreferrer" className="website-link">Mở PHEPHIM.AI <ExternalLink size={14}/></a></div>
+        <div className="sidebar-bottom">
+          <button
+            className="collapse-toggle"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            aria-label={sidebarCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+            aria-expanded={!sidebarCollapsed}
+            title={sidebarCollapsed ? "Mở rộng" : "Thu gọn"}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+          </button>
+          {!sidebarCollapsed && (
+            <>
+              <div className="secure-note"><ShieldCheck size={16} /><span>Dữ liệu quản lý riêng · Không xóa media</span></div>
+              <a href="https://www.phephim.ai" target="_blank" rel="noreferrer" className="website-link">Mở PHEPHIM.AI <ExternalLink size={14}/></a>
+            </>
+          )}
+        </div>
       </aside>
 
-      <main className="main-content">
-        <header className="topbar"><button className="mobile-menu" onClick={() => setSidebarOpen(true)} aria-label="Mở menu"><Menu size={22}/></button><div className="breadcrumb">Workspace <span>/</span> PHE PHIM AI <span>/</span> <b>Kho phim</b></div><div className="top-right"><span className="environment-dot"/><span className="environment-text">ADMIN PANEL</span><div className="avatar user-menu"><span>admin</span><button onClick={handleLogout} className="logout-btn" title="Đăng xuất"><LogOut size={18}/></button></div></div></header>
+      <main className="main-content" style={{ marginLeft: isDesktop ? (sidebarCollapsed ? 72 : 254) : 0 }}>
+        <header className="topbar">
+          <button
+            className="mobile-menu"
+            onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
+            aria-label={mobileDrawerOpen ? "Đóng menu" : "Mở menu"}
+            aria-expanded={mobileDrawerOpen}
+            aria-controls="sidebar"
+          >
+            {mobileDrawerOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+          <button
+            className="collapse-toggle-desktop"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            aria-label={sidebarCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+            aria-expanded={!sidebarCollapsed}
+            title={sidebarCollapsed ? "Mở rộng" : "Thu gọn"}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+          </button>
+          <div className="breadcrumb">Workspace <span>/</span> PHE PHIM AI <span>/</span> <b>Kho phim</b></div>
+          <div className="top-right">
+            <span className="environment-dot"/>
+            <span className="environment-text">ADMIN PANEL</span>
+            <div className="avatar user-menu">
+              <span>admin</span>
+              <button onClick={handleLogout} className="logout-btn" title="Đăng xuất"><LogOut size={18}/></button>
+            </div>
+          </div>
+        </header>
         <div className="content-container">
           <div className="heading"><div><span className="eyebrow">CONTENT MANAGEMENT</span><h1>Quản lý kho phim</h1><p>Chỉnh sửa tên phim, ảnh bìa và khả năng hiển thị trên PHEPHIM.AI.</p></div><button className="secondary-button refresh-btn" onClick={() => void load()} disabled={loading}><RefreshCw size={16} className={loading ? "spin" : ""}/> Đồng bộ dữ liệu</button></div>
           <section className="stats-grid" aria-label="Thống kê phim">{cards.map(({ label, value, icon: Icon }) => <div className="stat-card" key={label}><div className="stat-label">{label}<Icon size={18}/></div><div className="stat-number">{value.toLocaleString("vi-VN")}</div><div className="stat-caption">Dữ liệu từ thư viện phim</div></div>)}</section>
