@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { UserButton } from "@clerk/nextjs";
 import {
   Clapperboard, LayoutGrid, Search, RefreshCw, ShieldCheck,
   Pencil, EyeOff, Eye, X, Save, UploadCloud, Link2,
   ExternalLink, Film, Clock3, SlidersHorizontal, AlertTriangle, ImageIcon,
-  ChevronLeft, ChevronRight, CircleCheck, Menu,
+  ChevronLeft, ChevronRight, CircleCheck, Menu, LogOut, User,
 } from "lucide-react";
 import type { Movie } from "@/lib/movies";
 
@@ -41,6 +40,12 @@ export function Dashboard() {
   const [selected, setSelected] = useState<Movie | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const latestRequest = useRef(0);
+
+  function handleLogout() {
+    fetch("/api/auth/logout", { method: "POST" }).then(() => {
+      window.location.href = "/login";
+    });
+  }
 
   useEffect(() => { const timer = setTimeout(() => { setSearch(query); setPage(1); }, 300); return () => clearTimeout(timer); }, [query]);
 
@@ -107,7 +112,7 @@ export function Dashboard() {
       </aside>
 
       <main className="main-content">
-        <header className="topbar"><button className="mobile-menu" onClick={() => setSidebarOpen(true)} aria-label="Mở menu"><Menu size={22}/></button><div className="breadcrumb">Workspace <span>/</span> PHE PHIM AI <span>/</span> <b>Kho phim</b></div><div className="top-right"><span className="environment-dot"/><span className="environment-text">ADMIN PANEL</span><div className="avatar"><UserButton /></div></div></header>
+        <header className="topbar"><button className="mobile-menu" onClick={() => setSidebarOpen(true)} aria-label="Mở menu"><Menu size={22}/></button><div className="breadcrumb">Workspace <span>/</span> PHE PHIM AI <span>/</span> <b>Kho phim</b></div><div className="top-right"><span className="environment-dot"/><span className="environment-text">ADMIN PANEL</span><div className="avatar user-menu"><span>admin</span><button onClick={handleLogout} className="logout-btn" title="Đăng xuất"><LogOut size={18}/></button></div></div></header>
         <div className="content-container">
           <div className="heading"><div><span className="eyebrow">CONTENT MANAGEMENT</span><h1>Quản lý kho phim</h1><p>Chỉnh sửa tên phim, ảnh bìa và khả năng hiển thị trên PHEPHIM.AI.</p></div><button className="secondary-button refresh-btn" onClick={() => void load()} disabled={loading}><RefreshCw size={16} className={loading ? "spin" : ""}/> Đồng bộ dữ liệu</button></div>
           <section className="stats-grid" aria-label="Thống kê phim">{cards.map(({ label, value, icon: Icon }) => <div className="stat-card" key={label}><div className="stat-label">{label}<Icon size={18}/></div><div className="stat-number">{value.toLocaleString("vi-VN")}</div><div className="stat-caption">Dữ liệu từ thư viện phim</div></div>)}</section>

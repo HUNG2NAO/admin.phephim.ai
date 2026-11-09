@@ -1,19 +1,38 @@
-import { clerkMiddleware, createRouteMatcher, auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { verifySession } from "@/lib/auth";
 
-const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/api(.*)"]);
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/me", "/api/auth/logout"];
 
-export default clerkMiddleware(async (auth, req) => {
-  if (isPublicRoute(req)) return;
+export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
   
-  const { userId } = await auth();
-  if (!userId) {
-    const signInUrl = new URL("/sign-in", req.url);
-    signInUrl.searchParams.set("redirect_url", req.url);
-    return NextResponse.redirect(signInUrl);
+  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
   }
-});
+  
+  const token = request.cookies.get("auth-session")?.value;
+  
+  if (!token) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+  
+  const session = await verifySession(token);
+  
+  if (!session) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    const response = NextResponse.redirect(loginUrl);
+    response.cookies.delete("auth-session");
+    return response;
+  }
+  
+  return NextResponse.next();
+}
 
 export const config = {
-  matcher: ["/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ico|woff2?)).*)"],
+  matcher: [
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ico|woff2?|json)).*)",
+  ],
 };
