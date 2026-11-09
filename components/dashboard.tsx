@@ -130,7 +130,6 @@ export function Dashboard() {
   ];
 
   const isDesktop = mounted && window.innerWidth >= MOBILE_BREAKPOINT;
-  const sidebarWidth = sidebarCollapsed ? 72 : 254;
 
   return (
     <div className="app-shell">
@@ -145,7 +144,6 @@ export function Dashboard() {
       <aside
         ref={sidebarRef}
         className={`sidebar ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${mobileDrawerOpen ? "sidebar-open" : ""}`}
-        style={{ width: sidebarCollapsed ? 72 : 254, flexBasis: sidebarCollapsed ? 72 : 254 }}
         aria-label="Menu điều hướng"
       >
         <div className="brand">
@@ -217,7 +215,7 @@ export function Dashboard() {
         </div>
       </aside>
 
-      <main className="main-content" style={{ marginLeft: isDesktop ? (sidebarCollapsed ? 72 : 254) : 0 }}>
+      <main className="main-content">
         <header className="topbar">
           <button
             className="mobile-menu"
@@ -228,20 +226,11 @@ export function Dashboard() {
           >
             {mobileDrawerOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
-          <button
-            className="collapse-toggle-desktop"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            aria-label={sidebarCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
-            aria-expanded={!sidebarCollapsed}
-            title={sidebarCollapsed ? "Mở rộng" : "Thu gọn"}
-          >
-            {sidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
-          </button>
           <div className="breadcrumb">Workspace <span>/</span> PHE PHIM AI <span>/</span> <b>Kho phim</b></div>
           <div className="top-right">
             <span className="environment-dot"/>
             <span className="environment-text">ADMIN PANEL</span>
-            <div className="avatar user-menu">
+            <div className="user-menu">
               <span>admin</span>
               <button onClick={handleLogout} className="logout-btn" title="Đăng xuất"><LogOut size={18}/></button>
             </div>
